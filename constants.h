@@ -1,7 +1,7 @@
 #define BLOCK_SIZE 512
 #define INODE_SIZE 128
 
-#define INODE_NUM 640
+#define INODE_NUM 1024
 #define BLOCK_NUM 10240
 
 #define BLOCKS_PER_GROUP 64

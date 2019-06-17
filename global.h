@@ -8,7 +8,8 @@ extern int inode_startaddress;
 extern int inode_bitmap_startaddress;
 extern int block_bitmap_startaddress;
 extern int inode_startaddress;
-extern int block_startaddressl;
+extern int block_startaddress;
+extern int sum_size;
 
 extern int root_dir_inode_address;
 extern int current_dir_inode_address;

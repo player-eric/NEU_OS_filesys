@@ -3,10 +3,6 @@
 #include "inode.h"
 bool format();
 bool install();
-int balloc();
-bool bfree();
-int ialloc();
-bool ifree();
 
 //unfinished...
 bool mkdir(int parent_inode_address, char name[]);
@@ -17,6 +13,7 @@ void ls(int parent_inode_address);
 void cd(int parent_inode_address);
 void write_content(Inode file_inode, int file_inode_address, char buf[]);
 void cmd(char cmd[]);
+void goto_root();
 
 bool login();
 bool logout();

@@ -17,5 +17,6 @@ struct Inode
     int i_direct_block[10];
     int i_indirect_block;
 };
-
+int ialloc();
+bool ifree();
 #endif
