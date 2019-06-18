@@ -6,6 +6,7 @@ int ialloc()
     if (superblock->s_free_inode_num == 0)
     {
         std::cout << "没有空闲的I结点了" << std::endl;
+        return -1;
     }
     else
     {

@@ -28,11 +28,19 @@ int main()
 {
     initialize_disk();
     format();
-    cout << superblock->s_free_block_num << endl;
     install_system();
-    cout << "你好世界" << endl;
-    cout << superblock->s_free_block_num << endl;
-    bfree(balloc());
-    ifree(ialloc());
+    ls(current_dir_inode_address);
+    mkdir(current_dir_inode_address, "test");
+    ls(current_dir_inode_address);
+    cd(current_dir_inode_address, "test");
+    ls(current_dir_inode_address);
+    mkdir(current_dir_inode_address, "test2");
+    ls(current_dir_inode_address);
+    mkdir(current_dir_inode_address, "test3");
+    ls(current_dir_inode_address);
+    cd(current_dir_inode_address, "test3");
+    cout << current_dir_name << endl;
+    cd(current_dir_inode_address, "..");
+    ls(current_dir_inode_address);
     return 0;
 }
