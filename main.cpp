@@ -29,18 +29,15 @@ int main()
     initialize_disk();
     format();
     install_system();
+    //ls(current_dir_inode_address);
+    char input[100];
+    cout << "content::";
+    scanf("%s", input);
+    cout << "finish!!\n";
+    create_file(current_dir_inode_address, "test_file", input);
     ls(current_dir_inode_address);
-    mkdir(current_dir_inode_address, "test");
-    ls(current_dir_inode_address);
-    cd(current_dir_inode_address, "test");
-    ls(current_dir_inode_address);
-    mkdir(current_dir_inode_address, "test2");
-    ls(current_dir_inode_address);
-    mkdir(current_dir_inode_address, "test3");
-    ls(current_dir_inode_address);
-    cd(current_dir_inode_address, "test3");
-    cout << current_dir_name << endl;
-    cd(current_dir_inode_address, "..");
-    ls(current_dir_inode_address);
+    char content[2000];
+    cout << "opened:\n";
+    open(current_dir_inode_address, "test_file", content);
     return 0;
 }

@@ -423,3 +423,209 @@ void cd(int parent_inode_address, char name[])
     std::cout << "该目录不存在" << std::endl;
     return;
 }
+
+bool create_file(int parent_inode_address, char name[], char buf[])
+{
+    DirItem dirlist[16];
+
+    Inode cur;
+    fseek(fr, parent_inode_address, SEEK_SET);
+    fread(&cur, sizeof(Inode), 1, fr);
+
+    int i = 0;
+    int index_block = -1, index_item = -1;
+
+    int block_num;
+    int cnt = cur.i_cnt + 1;
+    while (i < 160)
+    {
+        block_num = i / 16;
+        if (cur.i_direct_block[block_num] == -1)
+        {
+            i += 16;
+            continue;
+        }
+
+        fseek(fr, cur.i_direct_block[block_num], SEEK_SET);
+        fread(dirlist, sizeof(dirlist), 1, fr);
+        fflush(fr);
+
+        int j;
+        for (j = 0; j < 16; j++)
+        {
+            if (strcmp(dirlist[j].item_name, "") == 0)
+            {
+                index_block = block_num;
+                index_item = j;
+            }
+            else
+            {
+                if (strcmp(dirlist[j].item_name, name) == 0)
+                {
+                    Inode same_name_inode;
+                    fseek(fr, dirlist[j].inode_address, SEEK_SET);
+                    fread(&same_name_inode, sizeof(Inode), 1, fr);
+                    if (((same_name_inode.i_mode >> 9) & 1) == 0)
+                    {
+                        cout << "同名文件已存在,创建失败" << endl;
+                        return false;
+                    }
+                }
+            }
+            i++;
+        }
+    }
+    if (index_block != -1)
+    {
+        fseek(fr, cur.i_direct_block[index_block], SEEK_SET);
+        fread(dirlist, sizeof(dirlist), 1, fr);
+        fflush(fr);
+
+        int new_inode_address = ialloc();
+        if (new_inode_address == -1)
+        {
+            return false;
+        }
+        int new_block_address = balloc();
+        if (new_block_address == -1)
+        {
+            return false;
+        }
+
+        strcpy(dirlist[index_item].item_name, name);
+        dirlist[index_item].inode_address = new_inode_address;
+
+        Inode new_inode;
+        new_inode.i_ino = (new_inode_address - inode_startaddress) / INODE_SIZE;
+        new_inode.i_create_time = time(NULL);
+        new_inode.i_last_open_time = time(NULL);
+        strcpy(new_inode.i_uname, current_user_name);
+        strcpy(new_inode.i_gname, current_user_group_name);
+
+        int k;
+        int len = strlen(buf);
+        for (k = 0; k < len; k += BLOCK_SIZE)
+        {
+            int this_part_block_address = balloc();
+            if (this_part_block_address == -1)
+            {
+                return false;
+            }
+            new_inode.i_direct_block[k / BLOCK_SIZE] = this_part_block_address;
+            fseek(fw, this_part_block_address, SEEK_SET);
+            fwrite(buf + k, BLOCK_SIZE, 1, fw);
+        }
+
+        for (k = len / BLOCK_SIZE + 1; k < 10; k++)
+        {
+            new_inode.i_direct_block[k] = -1;
+        }
+        if (len == 0)
+        {
+            int this_empty_file_block = balloc();
+            if (this_empty_file_block == -1)
+            {
+                return false;
+            }
+            new_inode.i_direct_block[0] = this_empty_file_block;
+            fseek(fw, this_empty_file_block, SEEK_SET);
+            fwrite(buf, BLOCK_SIZE, 1, fw);
+        }
+        new_inode.i_mode = MODE_FILE | FILE_DEFAULT_PERMISSION;
+        new_inode.i_size = len;
+        fseek(fw, new_inode_address, SEEK_SET);
+        fwrite(&new_inode, sizeof(Inode), 1, fw);
+
+        fseek(fw, cur.i_direct_block[index_block], SEEK_SET);
+        fwrite(dirlist, sizeof(dirlist), 1, fw);
+
+        cur.i_cnt++;
+        fseek(fw, parent_inode_address, SEEK_SET);
+        fwrite(&cur, sizeof(Inode), 1, fw);
+        fflush(fw);
+
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool access()
+{
+    return true;
+}
+
+bool open(int parent_inode_address, char name[], char content[])
+{
+    Inode cur;
+    fseek(fr, parent_inode_address, SEEK_SET);
+    fread(&cur, sizeof(Inode), 1, fr);
+
+    DirItem dirlist[16];
+
+    int i = 0;
+    int index_block = -1, index_item = -1;
+
+    int block_num;
+    int cnt = cur.i_cnt + 1;
+    while (i < 160)
+    {
+        block_num = i / 16;
+        if (cur.i_direct_block[block_num] == -1)
+        {
+            i += 16;
+            continue;
+        }
+
+        fseek(fr, cur.i_direct_block[block_num], SEEK_SET);
+        fread(dirlist, sizeof(dirlist), 1, fr);
+        fflush(fr);
+
+        int j;
+        for (j = 0; j < 16; j++)
+        {
+            if (strcmp(dirlist[j].item_name, name) == 0)
+            {
+                index_block = block_num;
+                index_item = j;
+            }
+            i += 1;
+        }
+    }
+    if (index_block == -1 || index_item == -1)
+    {
+        cout << "该文件不存在" << endl;
+        return false;
+    }
+    else
+    {
+        if (access() == false)
+        {
+            cout << "当前用户没有此文件的权限";
+            return false;
+        }
+        Inode inode_to_read;
+        fseek(fr, dirlist[index_item].inode_address, SEEK_SET);
+        fread(&inode_to_read, sizeof(Inode), 1, fr);
+
+        int reading_block;
+        for (reading_block = 0; reading_block < 10; reading_block++)
+        {
+            if (inode_to_read.i_direct_block[reading_block] == -1)
+            {
+                continue;
+            }
+            else
+            {
+                char this_block_content[BLOCK_SIZE];
+                fseek(fr, inode_to_read.i_direct_block[reading_block], SEEK_SET);
+                fread(this_block_content, BLOCK_SIZE, 1, fr);
+                strcat(content, this_block_content);
+            }
+        }
+        printf("%s\n", content);
+        return true;
+    }
+}

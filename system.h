@@ -3,21 +3,18 @@
 #include "inode.h"
 bool format();
 bool install();
-
-//unfinished...
+void cd(int parent_inode_address, char name[]);
+void ls(int parent_inode_address);
 bool mkdir(int parent_inode_address, char name[]);
 bool rmdir(int parent_inode_address, char name[]);
 bool create_file(int parent_inode_address, char name[], char buf[]);
+bool open(int parent_inode_address, char name[], char content[]);
+//unfinished...
 bool delete_file(int parent_inode_address, char name[]);
-void ls(int parent_inode_address);
-void cd(int parent_inode_address, char name[]);
-void write_content(Inode file_inode, int file_inode_address, char buf[]);
 void cmd(char cmd[]);
 void goto_root();
-
 bool login();
 bool logout();
-
 bool access();
 
 #endif
