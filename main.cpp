@@ -14,6 +14,7 @@ int block_startaddress = inode_startaddress + INODE_NUM * INODE_SIZE;
 int sum_size = block_startaddress + BLOCK_NUM * BLOCK_SIZE;
 int root_dir_inode_address;
 int current_dir_inode_address;
+int user_configure_dir_inode_address;
 char current_dir_name[200];
 char current_user_name[100];
 char current_user_group_name[100];
@@ -27,17 +28,12 @@ char buffer[10000000] = {0};
 int main()
 {
     initialize_disk();
-    format();
     install_system();
-    //ls(current_dir_inode_address);
-    char input[100];
-    cout << "content::";
-    scanf("%s", input);
-    cout << "finish!!\n";
-    create_file(current_dir_inode_address, "test_file", input);
-    ls(current_dir_inode_address);
-    char content[2000];
-    cout << "opened:\n";
-    open(current_dir_inode_address, "test_file", content);
+    format();
+    current_dir_name[0] = '/';
+    current_dir_name[1] = '\0';
+
+    cout << endl;
+    check_user("super_userd", "123456");
     return 0;
 }

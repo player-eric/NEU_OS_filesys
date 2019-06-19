@@ -3,7 +3,10 @@
 #include "dir_item.h"
 #include "inode.h"
 #include "block.h"
+#include "user.h"
 #include <time.h>
+#include <stdlib.h>
+#include <string>
 using namespace std;
 void initialize_disk()
 {
@@ -113,6 +116,20 @@ bool format()
     fseek(fw, root_inode_address, SEEK_SET);
     fwrite(&cur, sizeof(Inode), 1, fw);
     fflush(fw);
+    mkdir(root_dir_inode_address, "etc");
+    mkdir(root_dir_inode_address, "users");
+    cd(current_dir_inode_address, "users");
+    mkdir(current_dir_inode_address, "super_user");
+    cd(current_dir_inode_address, "..");
+
+    cd(current_dir_inode_address, "etc");
+    user_configure_dir_inode_address = current_dir_inode_address;
+    char super_user_info[] = "super_user,123456,super_user,,";
+    create_file(current_dir_inode_address, "users_info", super_user_info);
+    edit(current_dir_inode_address, "users_info", super_user_info);
+    char result[100];
+    open(current_dir_inode_address, "users_info", result);
+    cd(current_dir_inode_address, "..");
     return true;
 }
 
@@ -552,11 +569,6 @@ bool create_file(int parent_inode_address, char name[], char buf[])
     }
 }
 
-bool access()
-{
-    return true;
-}
-
 bool open(int parent_inode_address, char name[], char content[])
 {
     Inode cur;
@@ -601,9 +613,23 @@ bool open(int parent_inode_address, char name[], char content[])
     }
     else
     {
-        if (access() == false)
+        int current_mode;
+        if (strcmp(current_user_name, cur.i_uname) == 0)
         {
-            cout << "当前用户没有此文件的权限";
+            current_mode = 6;
+        }
+        else if (strcmp(current_user_name, cur.i_gname) == 0)
+        {
+            current_mode = 3;
+        }
+        else
+        {
+            current_mode = 0;
+        }
+
+        if (((cur.i_mode >> current_mode >> 2) & 1) == 0)
+        {
+            cout << "当前用户权限不足";
             return false;
         }
         Inode inode_to_read;
@@ -622,10 +648,150 @@ bool open(int parent_inode_address, char name[], char content[])
                 char this_block_content[BLOCK_SIZE];
                 fseek(fr, inode_to_read.i_direct_block[reading_block], SEEK_SET);
                 fread(this_block_content, BLOCK_SIZE, 1, fr);
+                fflush(fr);
                 strcat(content, this_block_content);
             }
         }
-        printf("%s\n", content);
         return true;
     }
+}
+
+bool edit(int parent_inode_address, char name[], char buf[])
+{
+    DirItem dirlist[16];
+
+    Inode cur;
+    fseek(fr, parent_inode_address, SEEK_SET);
+    fread(&cur, sizeof(Inode), 1, fr);
+
+    int i = 0;
+
+    int block_num;
+    int cnt = cur.i_cnt + 1;
+    bool flag_existing = false;
+    Inode to_edit_inode;
+    int write_back_address;
+    while (i < 160)
+    {
+        block_num = i / 16;
+        if (cur.i_direct_block[block_num] == -1)
+        {
+            i += 16;
+            continue;
+        }
+
+        fseek(fr, cur.i_direct_block[block_num], SEEK_SET);
+        fread(dirlist, sizeof(dirlist), 1, fr);
+        fflush(fr);
+
+        int j;
+        for (j = 0; j < 16; j++)
+        {
+            if (strcmp(dirlist[j].item_name, name) == 0)
+            {
+                Inode same_name_inode;
+                fseek(fr, dirlist[j].inode_address, SEEK_SET);
+                fread(&same_name_inode, sizeof(Inode), 1, fr);
+                if (((same_name_inode.i_mode >> 9) & 1) == 0)
+                {
+                    flag_existing = true;
+                    write_back_address = dirlist[j].inode_address;
+                    to_edit_inode = same_name_inode;
+                }
+            }
+            i++;
+        }
+    }
+    if (flag_existing == false)
+    {
+        cout << "文件不存在\n";
+        return false;
+    }
+    else
+    {
+        for (int j = 0; j < 16; j++)
+        {
+            if (to_edit_inode.i_direct_block[j] != -1)
+            {
+                bfree(to_edit_inode.i_direct_block[j]);
+            }
+        }
+        int k;
+        int len = strlen(buf);
+        for (k = 0; k < len; k += BLOCK_SIZE)
+        {
+            int this_part_block_address = balloc();
+            if (this_part_block_address == -1)
+            {
+                return false;
+            }
+            to_edit_inode.i_direct_block[k / BLOCK_SIZE] = this_part_block_address;
+            fseek(fw, this_part_block_address, SEEK_SET);
+            fwrite(buf + k, BLOCK_SIZE, 1, fw);
+            fflush(fw);
+        }
+        for (k = len / BLOCK_SIZE + 1; k < 10; k++)
+        {
+            to_edit_inode.i_direct_block[k] = -1;
+        }
+        if (len == 0)
+        {
+            int this_empty_file_block = balloc();
+            if (this_empty_file_block == -1)
+            {
+                return false;
+            }
+            to_edit_inode.i_direct_block[0] = this_empty_file_block;
+            fseek(fw, this_empty_file_block, SEEK_SET);
+            fwrite(buf, BLOCK_SIZE, 1, fw);
+        }
+        to_edit_inode.i_mode = MODE_FILE | FILE_DEFAULT_PERMISSION;
+        fseek(fw, write_back_address, SEEK_SET);
+        fwrite(&to_edit_inode, sizeof(Inode), 1, fw);
+        fflush(fw);
+        return true;
+    }
+}
+
+bool create_user()
+{
+    if (strcmp(current_user_name, "super_user") == 0)
+    {
+        char infos[BLOCK_SIZE];
+        memset(infos, '\0', BLOCK_SIZE);
+        open(user_configure_dir_inode_address, "users_info", infos);
+        user tmp;
+        cout << "请输入新用户名:";
+        scanf("%s", tmp.name);
+        cout << "请输入用户组别:";
+        scanf("%s", tmp.group);
+        cout << "请输入密码:";
+        scanf("%s", tmp.password);
+        strcat(infos, tmp.name);
+        strcat(infos, ",");
+        strcat(infos, tmp.password);
+        strcat(infos, ",");
+        strcat(infos, tmp.group);
+        strcat(infos, ",,");
+        edit(user_configure_dir_inode_address, "users_info", infos);
+    }
+    else
+    {
+        cout << "当前用户权限不足,不能创建新用户" << endl;
+        return false;
+    }
+    return true;
+}
+
+bool check_user(char name[], char password[])
+{
+    string to_search;
+    to_search += string(name);
+    to_search += ",";
+    to_search += string(password);
+    char infos[BLOCK_SIZE];
+    memset(infos, '\0', BLOCK_SIZE);
+    open(user_configure_dir_inode_address, "users_info", infos);
+    string info = string(infos);
+    return ((info.find(to_search, 0)) == string::npos);
 }

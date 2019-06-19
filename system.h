@@ -9,6 +9,7 @@ bool mkdir(int parent_inode_address, char name[]);
 bool rmdir(int parent_inode_address, char name[]);
 bool create_file(int parent_inode_address, char name[], char buf[]);
 bool open(int parent_inode_address, char name[], char content[]);
+bool edit(int parent_inode_address, char name[], char buf[]);
 //unfinished...
 bool delete_file(int parent_inode_address, char name[]);
 void cmd(char cmd[]);

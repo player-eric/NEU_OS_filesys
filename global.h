@@ -13,6 +13,7 @@ extern int sum_size;
 
 extern int root_dir_inode_address;
 extern int current_dir_inode_address;
+extern int user_configure_dir_inode_address;
 extern char current_dir_name[200];
 extern char current_user_name[100];
 extern char current_user_group_name[100];
