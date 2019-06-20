@@ -15,12 +15,14 @@ int sum_size = block_startaddress + BLOCK_NUM * BLOCK_SIZE;
 int root_dir_inode_address;
 int current_dir_inode_address;
 int user_configure_dir_inode_address;
+int user_own_dir_inode_address;
 char current_dir_name[200];
 char current_user_name[100];
 char current_user_group_name[100];
 bool isLogin;
 FILE *fw;
 FILE *fr;
+Inode copy_to_paste = Inode();
 bool inode_bitmap[INODE_NUM];
 bool block_bitmap[BLOCK_NUM];
 bool quit_flag;
@@ -37,9 +39,11 @@ int main()
     {
         login();
         getchar();
+        cd(current_dir_inode_address, "users");
+        cd(current_dir_inode_address, current_user_name);
         while (isLogin == true && quit_flag != true)
         {
-            cout << "<" << current_user_name << "#" << current_dir_name << ">";
+            cout << "<" << current_user_name << "#" << current_dir_name << ">  ";
             char command[100];
             cin.getline(command, 100);
             cmd(command);

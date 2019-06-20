@@ -119,6 +119,7 @@ bool format()
     mkdir(root_dir_inode_address, "users");
     cd(current_dir_inode_address, "users");
     mkdir(current_dir_inode_address, "super_user");
+    user_own_dir_inode_address = current_dir_inode_address;
     cd(current_dir_inode_address, "..");
 
     cd(current_dir_inode_address, "etc");
@@ -287,7 +288,6 @@ void ls(int parent_inode_address)
 
         for (int j = 0; j < 16; j++)
         {
-
             Inode inode_to_read;
             fseek(fr, dirlist[j].inode_address, SEEK_SET);
             fread(&inode_to_read, sizeof(Inode), 1, fr);
@@ -594,7 +594,6 @@ bool open(int parent_inode_address, char name[], char content[])
     int index_block = -1, index_item = -1;
 
     int block_num;
-    int cnt = cur.i_cnt + 1;
     while (i < 160)
     {
         block_num = i / 16;
@@ -805,6 +804,11 @@ bool create_user()
         strcat(infos, tmp.group);
         strcat(infos, ",,");
         edit(user_configure_dir_inode_address, "users_info", infos);
+        strcpy(current_user_name, "SYSTEM");
+        strcpy(current_user_group_name, "SYSTEM");
+        mkdir(user_own_dir_inode_address, tmp.name);
+        strcpy(current_user_name, "super_user");
+        strcpy(current_user_group_name, "SYSTEM");
     }
     else
     {
@@ -1194,6 +1198,7 @@ void cmd(char str[])
     {
         system("clear");
     }
+
     else
     {
         cout << "错误指令" << endl;

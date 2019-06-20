@@ -16,6 +16,7 @@ bool remove_dir(int parinoAddr, char name[]);
 void remove_all(int parinoaddr);
 bool login();
 void logout();
+
 //unfinished...
 void cmd(char str[]);
 
