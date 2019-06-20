@@ -33,7 +33,5 @@ int main()
     current_dir_name[0] = '/';
     current_dir_name[1] = '\0';
 
-    cout << endl;
-    check_user("super_userd", "123456");
     return 0;
 }

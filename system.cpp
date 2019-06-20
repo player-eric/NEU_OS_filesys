@@ -795,3 +795,208 @@ bool check_user(char name[], char password[])
     string info = string(infos);
     return ((info.find(to_search, 0)) == string::npos);
 }
+
+void remove_all(int parinoAddr)
+{
+    Inode cur;
+    fseek(fr, parinoAddr, SEEK_SET);
+    fread(&cur, sizeof(Inode), 1, fr);
+
+    int cnt = cur.i_cnt;
+    if (cnt <= 2)
+    {
+        bfree(cur.i_direct_block[0]);
+        ifree(parinoAddr);
+        return;
+    }
+
+    int i = 0;
+    while (i < 160)
+    {
+        DirItem dirlist[16] = {0};
+
+        if (cur.i_direct_block[i / 16] == -1)
+        {
+            i += 16;
+            continue;
+        }
+        int parblockAddr = cur.i_direct_block[i / 16];
+        fseek(fr, parblockAddr, SEEK_SET);
+        fread(&dirlist, sizeof(dirlist), 1, fr);
+
+        int j;
+        bool f = false;
+        for (j = 0; j < 16; j++)
+        {
+            if (!(strcmp(dirlist[j].item_name, ".") == 0 ||
+                  strcmp(dirlist[j].item_name, "..") == 0 ||
+                  strcmp(dirlist[j].item_name, "") == 0))
+            {
+                f = true;
+                remove_all(dirlist[j].inode_address);
+            }
+
+            cnt = cur.i_cnt;
+            i++;
+        }
+
+        if (f)
+            bfree(parblockAddr);
+    }
+    ifree(parinoAddr);
+    return;
+}
+
+bool remove_dir(int parinoAddr, char name[])
+{
+
+    if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+    {
+        printf("错误操作\n");
+        return 0;
+    }
+
+    Inode cur;
+    fseek(fr, parinoAddr, SEEK_SET);
+    fread(&cur, sizeof(Inode), 1, fr);
+
+    int cnt = cur.i_cnt;
+
+    int filemode;
+    if (strcmp(current_user_name, cur.i_uname) == 0)
+        filemode = 6;
+    else if (strcmp(current_user_group_name, cur.i_gname) == 0)
+        filemode = 3;
+    else
+        filemode = 0;
+
+    if ((((cur.i_mode >> filemode >> 1) & 1) == 0) && (strcmp(current_user_name, "root") != 0))
+    {
+        printf("权限不足：无写入权限\n");
+        return false;
+    }
+
+    int i = 0;
+    while (i < 160)
+    {
+        DirItem dirlist[16] = {0};
+
+        if (cur.i_direct_block[i / 16] == -1)
+        {
+            i += 16;
+            continue;
+        }
+        int parblockAddr = cur.i_direct_block[i / 16];
+        fseek(fr, parblockAddr, SEEK_SET);
+        fread(&dirlist, sizeof(dirlist), 1, fr);
+
+        int j;
+        for (j = 0; j < 16; j++)
+        {
+            Inode tmp;
+            fseek(fr, dirlist[j].inode_address, SEEK_SET);
+            fread(&tmp, sizeof(Inode), 1, fr);
+
+            if (strcmp(dirlist[j].item_name, name) == 0)
+            {
+                if (((tmp.i_mode >> 9) & 1) == 1)
+                {
+                    remove_all(dirlist[j].inode_address);
+
+                    strcpy(dirlist[j].item_name, "");
+                    dirlist[j].inode_address = -1;
+                    fseek(fw, parblockAddr, SEEK_SET);
+                    fwrite(&dirlist, sizeof(dirlist), 1, fw);
+                    cur.i_cnt--;
+                    fseek(fw, parinoAddr, SEEK_SET);
+                    fwrite(&cur, sizeof(Inode), 1, fw);
+
+                    fflush(fw);
+                    return true;
+                }
+            }
+            i++;
+        }
+    }
+    printf("没有找到该目录\n");
+    return false;
+}
+
+bool delete_file(int parinoAddr, char name[])
+{
+    Inode cur;
+    fseek(fr, parinoAddr, SEEK_SET);
+    fread(&cur, sizeof(Inode), 1, fr);
+
+    int cnt = cur.i_cnt;
+
+    //判断文件模式。6为owner，3为group，0为other
+    int filemode;
+    if (strcmp(current_user_name, cur.i_uname) == 0)
+        filemode = 6;
+    else if (strcmp(current_user_name, cur.i_gname) == 0)
+        filemode = 3;
+    else
+        filemode = 0;
+
+    if (((cur.i_mode >> filemode >> 1) & 1) == 0)
+    {
+        printf("权限不足：无写入权限\n");
+        return false;
+    }
+
+    int i = 0;
+    while (i < 160)
+    {
+        DirItem dirlist[16] = {0};
+
+        if (cur.i_direct_block[i / 16] == -1)
+        {
+            i += 16;
+            continue;
+        }
+        int parblockAddr = cur.i_direct_block[i / 16];
+        fseek(fr, parblockAddr, SEEK_SET);
+        fread(&dirlist, sizeof(dirlist), 1, fr);
+
+        int pos;
+        for (pos = 0; pos < 16; pos++)
+        {
+            Inode tmp;
+            fseek(fr, dirlist[pos].inode_address, SEEK_SET);
+            fread(&tmp, sizeof(Inode), 1, fr);
+
+            if (strcmp(dirlist[pos].item_name, name) == 0)
+            {
+                if (((tmp.i_mode >> 9) & 1) == 1)
+                {
+                    cout << "这是一个目录，请用'rmdir'指令" << endl;
+                    return false;
+                }
+                else
+                {
+                    int k;
+                    for (k = 0; k < 10; k++)
+                        if (tmp.i_direct_block[k] != -1)
+                            bfree(tmp.i_direct_block[k]);
+
+                    ifree(dirlist[pos].inode_address);
+
+                    strcpy(dirlist[pos].item_name, "");
+                    dirlist[pos].inode_address = -1;
+                    fseek(fw, parblockAddr, SEEK_SET);
+                    fwrite(&dirlist, sizeof(dirlist), 1, fw);
+                    cur.i_cnt--;
+                    fseek(fw, parinoAddr, SEEK_SET);
+                    fwrite(&cur, sizeof(Inode), 1, fw);
+
+                    fflush(fw);
+                    return true;
+                }
+            }
+            i++;
+        }
+    }
+    printf("没有找到该文件!\n");
+    return false;
+}
