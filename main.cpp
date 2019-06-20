@@ -30,8 +30,12 @@ int main()
     initialize_disk();
     install_system();
     format();
+    //create_user();
     current_dir_name[0] = '/';
     current_dir_name[1] = '\0';
-
+    login();
+    logout();
+    cout << current_dir_name << endl;
+    cout << isLogin << endl;
     return 0;
 }

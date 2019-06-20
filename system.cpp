@@ -793,7 +793,7 @@ bool check_user(char name[], char password[])
     memset(infos, '\0', BLOCK_SIZE);
     open(user_configure_dir_inode_address, "users_info", infos);
     string info = string(infos);
-    return ((info.find(to_search, 0)) == string::npos);
+    return not((info.find(to_search, 0)) == string::npos);
 }
 
 void remove_all(int parinoAddr)
@@ -930,7 +930,6 @@ bool delete_file(int parinoAddr, char name[])
 
     int cnt = cur.i_cnt;
 
-    //判断文件模式。6为owner，3为group，0为other
     int filemode;
     if (strcmp(current_user_name, cur.i_uname) == 0)
         filemode = 6;
@@ -999,4 +998,50 @@ bool delete_file(int parinoAddr, char name[])
     }
     printf("没有找到该文件!\n");
     return false;
+}
+
+bool login()
+{
+    cout << "请输入用户名:";
+    char name[20];
+    scanf("%s", name);
+    cout << "请输入密码:";
+    char password[10];
+    scanf("%s", password);
+    bool flag = check_user(name, password);
+    if (flag == true)
+    {
+        string to_search;
+        to_search += string(name);
+        to_search += ",";
+        to_search += string(password);
+        char infos[BLOCK_SIZE];
+        memset(infos, '\0', BLOCK_SIZE);
+        open(user_configure_dir_inode_address, "users_info", infos);
+        string info = string(infos);
+        size_t index = info.find(to_search, 0);
+        int len = to_search.length();
+        size_t index2 = info.find(",,", len + index);
+        string group;
+        for (int i = index + len + 1; i < index2; i++)
+        {
+            group += info[i];
+        }
+        strcpy(current_user_group_name, group.c_str());
+        strcpy(current_user_name, name);
+        isLogin = true;
+    }
+    else
+    {
+        cout << "用户名或密码错误\n";
+        return false;
+    }
+}
+void logout()
+{
+    isLogin = false;
+    current_dir_inode_address = root_dir_inode_address;
+    current_dir_name[0] = '/';
+    current_dir_name[1] = '\0';
+    cout << "用户注销" << endl;
 }

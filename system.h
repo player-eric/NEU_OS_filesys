@@ -10,13 +10,13 @@ bool rmdir(int parent_inode_address, char name[]);
 bool create_file(int parent_inode_address, char name[], char buf[]);
 bool open(int parent_inode_address, char name[], char content[]);
 bool edit(int parent_inode_address, char name[], char buf[]);
-bool access();
+bool check_user(char name[], char password[]);
 bool delete_file(int parent_inode_address, char name[]);
 bool remove_dir(int parinoAddr, char name[]);
 void remove_all(int parinoaddr);
+bool login();
+void logout();
 //unfinished...
 void cmd(char cmd[]);
-bool login();
-bool logout();
 
 #endif
