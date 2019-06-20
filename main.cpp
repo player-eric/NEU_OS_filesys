@@ -23,19 +23,28 @@ FILE *fw;
 FILE *fr;
 bool inode_bitmap[INODE_NUM];
 bool block_bitmap[BLOCK_NUM];
-
+bool quit_flag;
 char buffer[10000000] = {0};
 int main()
 {
     initialize_disk();
     install_system();
     format();
-    //create_user();
     current_dir_name[0] = '/';
     current_dir_name[1] = '\0';
-    login();
-    logout();
-    cout << current_dir_name << endl;
-    cout << isLogin << endl;
+
+    while (quit_flag != true)
+    {
+        login();
+        getchar();
+        while (isLogin == true && quit_flag != true)
+        {
+            cout << "<" << current_user_name << "#" << current_dir_name << ">";
+            char command[100];
+            cin.getline(command, 100);
+            cmd(command);
+        }
+    }
+
     return 0;
 }

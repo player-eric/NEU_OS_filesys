@@ -19,7 +19,7 @@ extern char current_user_name[100];
 extern char current_user_group_name[100];
 
 extern bool isLogin;
-
+extern bool quit_flag;
 extern FILE *fw;
 extern FILE *fr;
 

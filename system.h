@@ -17,6 +17,6 @@ void remove_all(int parinoaddr);
 bool login();
 void logout();
 //unfinished...
-void cmd(char cmd[]);
+void cmd(char str[]);
 
 #endif

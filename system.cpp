@@ -7,6 +7,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <string>
+#include <unistd.h>
 using namespace std;
 void initialize_disk()
 {
@@ -32,8 +33,6 @@ bool install_system()
     fseek(fr, block_bitmap_startaddress, SEEK_SET);
     fread(block_bitmap, sizeof(block_bitmap), 1, fr);
     isLogin = false;
-    strcpy(current_user_name, "super_user");
-    strcpy(current_user_group_name, "super_user");
 
     root_dir_inode_address = inode_startaddress;
     current_dir_inode_address = root_dir_inode_address;
@@ -301,13 +300,14 @@ void ls(int parent_inode_address)
 
             if ((strcmp(dirlist[j].item_name, ".") != 0) && (strcmp(dirlist[j].item_name, "..") != 0))
             {
+                std::cout << dirlist[j].item_name << '\t';
                 if ((inode_to_read.i_mode >> 9) == 1)
                 {
-                    std::cout << 'D';
+                    std::cout << "Dir\t\t";
                 }
                 else
                 {
-                    std::cout << "F";
+                    std::cout << "File\t\t";
                 }
                 tm *ptr;
                 ptr = std::gmtime(&inode_to_read.i_create_time);
@@ -337,12 +337,25 @@ void ls(int parent_inode_address)
                     t -= 1;
                 }
                 std::cout << '\t';
+                if (strcmp(inode_to_read.i_uname, "") == 0)
+                {
+                    cout << "SYSTEM\t\t";
+                }
+                else
+                {
+                    std::cout << inode_to_read.i_uname << '\t';
+                }
+                if (strcmp(inode_to_read.i_gname, "") == 0)
+                {
+                    cout << "SYSTEM\t\t";
+                }
+                else
+                {
+                    std::cout << inode_to_read.i_gname << '\t';
+                }
 
-                std::cout << inode_to_read.i_uname << '\t';
-                std::cout << inode_to_read.i_gname << '\t';
-                printf("%d.%d.%d %02d:%02d:%02d  ",
+                printf("%d.%d.%d %02d:%02d:%02d\n",
                        1900 + ptr->tm_year, ptr->tm_mon + 1, ptr->tm_mday, (8 + ptr->tm_hour) % 24, ptr->tm_min, ptr->tm_sec);
-                std::cout << dirlist[j].item_name << std::endl;
             }
             i += 1;
         }
@@ -694,9 +707,27 @@ bool edit(int parent_inode_address, char name[], char buf[])
                 fread(&same_name_inode, sizeof(Inode), 1, fr);
                 if (((same_name_inode.i_mode >> 9) & 1) == 0)
                 {
-                    flag_existing = true;
-                    write_back_address = dirlist[j].inode_address;
-                    to_edit_inode = same_name_inode;
+                    int current_mode = 0;
+                    if (strcmp(current_user_name, same_name_inode.i_uname) == 0)
+                    {
+                        current_mode = 6;
+                    }
+                    else if (strcmp(current_user_group_name, same_name_inode.i_gname) == 0)
+                    {
+                        current_mode = 3;
+                    }
+
+                    if (((strcmp("super_user", current_user_name) == 0) && (strcmp(same_name_inode.i_uname, "") == 0)) || current_user_name == "super_user" || (((same_name_inode.i_mode >> current_mode >> 1) & 1) == 1))
+                    {
+                        flag_existing = true;
+                        write_back_address = dirlist[j].inode_address;
+                        to_edit_inode = same_name_inode;
+                    }
+                    else
+                    {
+                        cout << "当前用户权限不足\n";
+                        return false;
+                    }
                 }
             }
             i++;
@@ -849,7 +880,6 @@ void remove_all(int parinoAddr)
 
 bool remove_dir(int parinoAddr, char name[])
 {
-
     if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
     {
         printf("错误操作\n");
@@ -870,7 +900,7 @@ bool remove_dir(int parinoAddr, char name[])
     else
         filemode = 0;
 
-    if ((((cur.i_mode >> filemode >> 1) & 1) == 0) && (strcmp(current_user_name, "root") != 0))
+    if ((((cur.i_mode >> filemode >> 1) & 1) != 0) && (strcmp(current_user_name, "root") != 0))
     {
         printf("权限不足：无写入权限\n");
         return false;
@@ -938,7 +968,7 @@ bool delete_file(int parinoAddr, char name[])
     else
         filemode = 0;
 
-    if (((cur.i_mode >> filemode >> 1) & 1) == 0)
+    if (((cur.i_mode >> filemode >> 1) & 1) != 0)
     {
         printf("权限不足：无写入权限\n");
         return false;
@@ -1044,4 +1074,128 @@ void logout()
     current_dir_name[0] = '/';
     current_dir_name[1] = '\0';
     cout << "用户注销" << endl;
+}
+
+void cmd(char str[])
+{
+    char p1[100];
+    char p2[100];
+    char p3[100];
+    char buf[100000];
+    int tmp = 0;
+    int i;
+    sscanf(str, "%s", p1);
+    if (strcmp(p1, "ls") == 0)
+    {
+        ls(current_dir_inode_address);
+    }
+    else if (strcmp(p1, "cd") == 0)
+    {
+        sscanf(str, "%s %s", p1, p2);
+        cd(current_dir_inode_address, p2);
+    }
+    else if (strcmp(p1, "mkdir") == 0)
+    {
+        sscanf(str, "%s%s", p1, p2);
+        mkdir(current_dir_inode_address, p2);
+    }
+    else if (strcmp(p1, "rmdir") == 0)
+    {
+        sscanf(str, "%s%s", p1, p2);
+        remove_dir(current_dir_inode_address, p2);
+    }
+    else if (strcmp(p1, "nfile") == 0)
+    {
+        sscanf(str, "%s%s", p1, p2);
+        char empty[0];
+        create_file(current_dir_inode_address, p2, empty);
+    }
+    else if (strcmp(p1, "open") == 0)
+    {
+        sscanf(str, "%s%s", p1, p2);
+        char buff[5120];
+        memset(buff, '\0', 5120);
+        open(current_dir_inode_address, p2, buff);
+        system("clear");
+        cout << "文件 " << p2 << " 内容："
+             << endl;
+        printf("%s\n", buff);
+    }
+    else if (strcmp(p1, "edit") == 0)
+    {
+        sscanf(str, "%s%s", p1, p2);
+        char buff[5120];
+        memset(buff, '\0', 5120);
+        open(current_dir_inode_address, p2, buff);
+        system("clear");
+        cout << "文件 " << p2 << " 当前内容：" << endl
+             << endl;
+        printf("%s\n", buff);
+        cout << "请输入新内容:\n";
+        cin.get(buff, 5120);
+        bool flag = edit(current_dir_inode_address, p2, buff);
+        if (flag == true)
+        {
+            cout << "文件 " << p2 << " 编辑完成!\n";
+        }
+        else
+        {
+            cout << "文件 " << p2 << " 编辑失败!\n";
+        }
+        getchar();
+    }
+    else if (strcmp(p1, "format") == 0)
+    {
+        format();
+    }
+    else if (strcmp(p1, "logout") == 0)
+    {
+        system("clear");
+        logout();
+    }
+    else if (strcmp(p1, "quit") == 0)
+    {
+        quit_flag = true;
+    }
+    else if (strcmp(p1, "nuser") == 0)
+    {
+        system("clear");
+        create_user();
+        getchar();
+        cout << "新用户创建成功" << endl;
+    }
+    else if (strcmp(p1, "rmfile") == 0)
+    {
+        sscanf(str, "%s%s", p1, p2);
+        delete_file(current_dir_inode_address, p2);
+    }
+    else if (strcmp(p1, "inode") == 0)
+    {
+        int count = 0;
+        for (int i = 0; i < 32; i++)
+        {
+            for (int j = 0; j < 32; j++)
+            {
+                if (inode_bitmap[i * 32 + j] == true)
+                {
+                    cout << '+';
+                    count += 1;
+                }
+                else
+                {
+                    cout << '-';
+                }
+            }
+            cout << endl;
+        }
+        cout << "已使用:" << count << "个inode,共有:" << INODE_NUM << "个inode\n";
+    }
+    else if (strcmp(p1, "cls") == 0)
+    {
+        system("clear");
+    }
+    else
+    {
+        cout << "错误指令" << endl;
+    }
 }
