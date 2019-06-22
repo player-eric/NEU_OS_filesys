@@ -16,8 +16,9 @@ bool remove_dir(int parinoAddr, char name[]);
 void remove_all(int parinoaddr);
 bool login();
 void logout();
-
+bool access(int parent_inode_address, char name[], int mode);
+bool rename(int parent_inode_address, char oldn[], char newn[]);
 //unfinished...
 void cmd(char str[]);
-
+//to finish ls-size
 #endif

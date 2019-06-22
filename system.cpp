@@ -1128,24 +1128,32 @@ void cmd(char str[])
     else if (strcmp(p1, "edit") == 0)
     {
         sscanf(str, "%s%s", p1, p2);
-        char buff[5120];
-        memset(buff, '\0', 5120);
-        open(current_dir_inode_address, p2, buff);
-        system("clear");
-        cout << "文件 " << p2 << " 当前内容：" << endl
-             << endl;
-        printf("%s\n", buff);
-        cout << "请输入新内容:\n";
-        cin.get(buff, 5120);
-        bool flag = edit(current_dir_inode_address, p2, buff);
-        if (flag == true)
+        if (access(current_dir_inode_address, p2, 1) == true)
         {
-            cout << "文件 " << p2 << " 编辑完成!\n";
+            char buff[5120];
+            memset(buff, '\0', 5120);
+            open(current_dir_inode_address, p2, buff);
+            system("clear");
+            cout << "文件 " << p2 << " 当前内容：" << endl
+                 << endl;
+            printf("%s\n", buff);
+            cout << "请输入新内容:\n";
+            cin.get(buff, 5120);
+            bool flag = edit(current_dir_inode_address, p2, buff);
+            if (flag == true)
+            {
+                cout << "文件 " << p2 << " 编辑完成!\n";
+            }
+            else
+            {
+                cout << "文件 " << p2 << " 编辑失败!\n";
+            }
         }
         else
         {
-            cout << "文件 " << p2 << " 编辑失败!\n";
+            cout << "当前用户权限不足\n";
         }
+
         getchar();
     }
     else if (strcmp(p1, "format") == 0)
@@ -1198,9 +1206,142 @@ void cmd(char str[])
     {
         system("clear");
     }
-
+    else if (strcmp(p1, "rename") == 0)
+    {
+        sscanf(str, "%s%s%s", p1, p2, p3);
+        rename(current_dir_inode_address, p2, p3);
+    }
     else
     {
         cout << "错误指令" << endl;
+    }
+}
+
+bool access(int parent_inode_address, char name[], int mode)
+{
+    Inode cur;
+    fseek(fr, parent_inode_address, SEEK_SET);
+    fread(&cur, sizeof(Inode), 1, fr);
+
+    DirItem dirlist[16];
+
+    int i = 0;
+    int index_block = -1, index_item = -1;
+
+    int block_num;
+    while (i < 160)
+    {
+        block_num = i / 16;
+        if (cur.i_direct_block[block_num] == -1)
+        {
+            i += 16;
+            continue;
+        }
+
+        fseek(fr, cur.i_direct_block[block_num], SEEK_SET);
+        fread(dirlist, sizeof(dirlist), 1, fr);
+        fflush(fr);
+
+        int j;
+        for (j = 0; j < 16; j++)
+        {
+            if (strcmp(dirlist[j].item_name, name) == 0)
+            {
+                index_block = block_num;
+                index_item = j;
+            }
+            i += 1;
+        }
+    }
+    if (index_block == -1 || index_item == -1)
+    {
+        cout << "该文件不存在" << endl;
+        return false;
+    }
+    else
+    {
+        fseek(fr, cur.i_direct_block[index_block], SEEK_SET);
+        fread(dirlist, sizeof(dirlist), 1, fr);
+        fflush(fr);
+
+        Inode to_check;
+        fseek(fr, dirlist[index_item].inode_address, SEEK_SET);
+        fread(&to_check, sizeof(Inode), 1, fr);
+        fflush(fr);
+
+        int current_mode;
+        if (strcmp(current_user_name, to_check.i_uname) == 0)
+        {
+            current_mode = 6;
+        }
+        else if (strcmp(current_user_name, to_check.i_gname) == 0)
+        {
+            current_mode = 3;
+        }
+        else
+        {
+            current_mode = 0;
+        }
+        if (((to_check.i_mode >> current_mode >> mode) & 1) == 0)
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+}
+bool rename(int parent_inode_address, char oldn[], char newn[])
+{
+    if (access(parent_inode_address, oldn, 1) == true)
+    {
+        Inode cur;
+        fseek(fr, parent_inode_address, SEEK_SET);
+        fread(&cur, sizeof(Inode), 1, fr);
+
+        DirItem dirlist[16];
+
+        int i = 0;
+        int index_block = -1, index_item = -1;
+
+        int block_num;
+        while (i < 160)
+        {
+            block_num = i / 16;
+            if (cur.i_direct_block[block_num] == -1)
+            {
+                i += 16;
+                continue;
+            }
+
+            fseek(fr, cur.i_direct_block[block_num], SEEK_SET);
+            fread(dirlist, sizeof(dirlist), 1, fr);
+            fflush(fr);
+
+            int j;
+            for (j = 0; j < 16; j++)
+            {
+                if (strcmp(dirlist[j].item_name, oldn) == 0)
+                {
+                    index_block = block_num;
+                    index_item = j;
+                    strcpy(dirlist[j].item_name, newn);
+                    fseek(fw, cur.i_direct_block[block_num], SEEK_SET);
+                    fwrite(dirlist, sizeof(dirlist), 1, fw);
+                    fflush(fw);
+                }
+                i += 1;
+            }
+        }
+        if (index_block == -1 || index_item == -1)
+        {
+            cout << "该文件不存在" << endl;
+            return false;
+        }
+    }
+    else
+    {
+        cout << "当前用户权限不足" << endl;
     }
 }

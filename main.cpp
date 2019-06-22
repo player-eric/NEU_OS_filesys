@@ -22,7 +22,7 @@ char current_user_group_name[100];
 bool isLogin;
 FILE *fw;
 FILE *fr;
-Inode copy_to_paste = Inode();
+int copy_path;
 bool inode_bitmap[INODE_NUM];
 bool block_bitmap[BLOCK_NUM];
 bool quit_flag;
