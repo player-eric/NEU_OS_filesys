@@ -1,6 +1,7 @@
 #include <iostream>
 #include "constants.h"
 #include "global.h"
+#include "fprocess.h"
 #include "system.cpp"
 #include "block.cpp"
 #include "inode.cpp"
@@ -16,6 +17,7 @@ int root_dir_inode_address;
 int current_dir_inode_address;
 int user_configure_dir_inode_address;
 int user_own_dir_inode_address;
+int copy_to_paste_inode_address;
 char current_dir_name[200];
 char current_user_name[100];
 char current_user_group_name[100];
@@ -25,13 +27,22 @@ FILE *fr;
 int copy_path;
 bool inode_bitmap[INODE_NUM];
 bool block_bitmap[BLOCK_NUM];
+file u_ofile[10];
+file sys_ofile[20];
+inode_mem mem_inode[10];
 bool quit_flag;
 char buffer[10000000] = {0};
 int main()
 {
     initialize_disk();
     install_system();
-    format();
+    cout << "是否要格式化磁盘(y/n)?";
+    char choice;
+    cin >> choice;
+    if (choice == true)
+    {
+        format();
+    }
     current_dir_name[0] = '/';
     current_dir_name[1] = '\0';
 

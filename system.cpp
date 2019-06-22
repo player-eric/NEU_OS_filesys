@@ -644,9 +644,71 @@ bool open(int parent_inode_address, char name[], char content[])
             cout << "当前用户权限不足";
             return false;
         }
+
         Inode inode_to_read;
         fseek(fr, dirlist[index_item].inode_address, SEEK_SET);
         fread(&inode_to_read, sizeof(Inode), 1, fr);
+
+        int p;
+        for (int p = 0; p < 10; p++)
+        {
+            if (mem_inode[p].occupied == true)
+            {
+                if (mem_inode[p].i_ino == inode_to_read.i_ino)
+                {
+                    break;
+                }
+                continue;
+            }
+        }
+        mem_inode[p].i_ino = inode_to_read.i_ino;
+        mem_inode[p].i_mode = inode_to_read.i_mode;
+        mem_inode[p].i_cnt = inode_to_read.i_cnt;
+        strcpy(mem_inode[p].i_uname, inode_to_read.i_uname);
+        strcpy(mem_inode[p].i_gname, inode_to_read.i_gname);
+        mem_inode[p].i_size = inode_to_read.i_size;
+        mem_inode[p].i_create_time = inode_to_read.i_create_time;
+        mem_inode[p].i_last_open_time = inode_to_read.i_last_open_time;
+        for (int i = 0; i < 10; i++)
+        {
+            mem_inode[p].i_direct_block[i] = inode_to_read.i_direct_block[i];
+        }
+        mem_inode[p].i_indirect_block = inode_to_read.i_indirect_block;
+        mem_inode[p].occupied = true;
+        mem_inode[p].i_cnt += 1;
+        mem_inode[p].i_flag = FREAD;
+
+        for (p = 0; p < 20; p++)
+        {
+            if (sys_ofile[p].occupied == true)
+            {
+                if (sys_ofile[p].f_inode == inode_to_read.i_ino)
+                {
+                    break;
+                }
+                continue;
+            }
+        }
+        sys_ofile[p].f_inode = inode_to_read.i_ino;
+        sys_ofile[p].f_flag = FREAD;
+        sys_ofile[p].f_count += 1;
+        sys_ofile[p].occupied = true;
+
+        for (p = 0; p < 10; p++)
+        {
+            if (u_ofile[p].occupied == true)
+            {
+                if (u_ofile[p].f_inode == inode_to_read.i_ino)
+                {
+                    break;
+                }
+                continue;
+            }
+        }
+        u_ofile[p].f_inode = inode_to_read.i_ino;
+        u_ofile[p].f_flag = FREAD;
+        u_ofile[p].f_count += 1;
+        u_ofile[p].occupied = true;
 
         int reading_block;
         for (reading_block = 0; reading_block < 10; reading_block++)
@@ -1344,4 +1406,10 @@ bool rename(int parent_inode_address, char oldn[], char newn[])
     {
         cout << "当前用户权限不足" << endl;
     }
+}
+
+bool copy(int parent_inode_address, char name[])
+{
+    //unfinished
+    return true;
 }
