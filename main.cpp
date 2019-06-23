@@ -6,7 +6,7 @@
 #include "block.cpp"
 #include "inode.cpp"
 using namespace std;
-SuperBlock *superblock = new SuperBlock;
+SuperBlock *superblock ;//= new SuperBlock;
 int superblock_startaddress = 0;
 int inode_bitmap_startaddress = BLOCK_SIZE;
 int block_bitmap_startaddress = inode_bitmap_startaddress + 2 * BLOCK_SIZE;
@@ -39,10 +39,16 @@ int main()
     cout << "是否要格式化磁盘(y/n)?";
     char choice;
     cin >> choice;
-    if (choice == true)
+    if (choice == 'y')
     {
+        cout << "磁盘格式化成功\n";
         format();
     }
+    fseek(fr, superblock_startaddress, SEEK_SET);
+    fread(superblock, sizeof(SuperBlock), 1, fr);
+    fflush(fr);
+    cout<<"number now "<<superblock->s_free_inode_num<<endl;
+    install_system();
     current_dir_name[0] = '/';
     current_dir_name[1] = '\0';
 

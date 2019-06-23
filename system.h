@@ -19,6 +19,8 @@ void logout();
 bool access(int parent_inode_address, char name[], int mode);
 bool rename(int parent_inode_address, char oldn[], char newn[]);
 void close(int parent_inode_address, char name[]);
+bool copy(int parent_inode_address, char name[]);
+bool paste(int parent_inode_address, char name[]);
 //unfinished...
 void cmd(char str[]);
 //to finish ls-size

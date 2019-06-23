@@ -28,10 +28,14 @@ bool install_system()
 {
     fseek(fr, superblock_startaddress, SEEK_SET);
     fread(superblock, sizeof(SuperBlock), 1, fr);
+    fflush(fr);
+    cout<<"s b f n: "<<superblock->s_free_inode_num<<endl;
     fseek(fr, inode_bitmap_startaddress, SEEK_SET);
     fread(inode_bitmap, sizeof(inode_bitmap), 1, fr);
+    fflush(fr);
     fseek(fr, block_bitmap_startaddress, SEEK_SET);
     fread(block_bitmap, sizeof(block_bitmap), 1, fr);
+    fflush(fr);
     isLogin = false;
 
     root_dir_inode_address = inode_startaddress;
@@ -58,11 +62,11 @@ bool format()
     memset(inode_bitmap, 0, sizeof(inode_bitmap));
     fseek(fw, inode_startaddress, SEEK_SET);
     fwrite(inode_bitmap, sizeof(inode_bitmap), 1, fw);
-
+    fflush(fw);
     memset(block_bitmap, 0, sizeof(block_bitmap));
     fseek(fw, block_startaddress, SEEK_SET);
     fwrite(block_bitmap, sizeof(block_bitmap), 1, fw);
-
+    fflush(fw);
     for (int i = BLOCK_NUM / BLOCKS_PER_GROUP - 1; i >= 0; i--)
     {
         if (i == BLOCK_NUM / BLOCKS_PER_GROUP - 1)
@@ -83,10 +87,12 @@ bool format()
         fseek(fw, block_startaddress + i * BLOCKS_PER_GROUP * BLOCK_SIZE, SEEK_SET);
         fwrite(superblock->s_free_stack, sizeof(superblock->s_free_stack), 1, fw);
     }
-
+    cout<<"formatting superblock: "<<superblock->s_free_inode_num<<endl;
     fseek(fw, superblock_startaddress, SEEK_SET);
     fwrite(superblock, sizeof(SuperBlock), 1, fw);
     fflush(fw);
+
+  
 
     Inode cur;
     int root_inode_address = ialloc();
@@ -97,7 +103,7 @@ bool format()
 
     fseek(fw, root_block_address, SEEK_SET);
     fwrite(root_dirlist, sizeof(root_dirlist), 1, fw);
-
+    fflush(fw);
     cur.i_ino = 0;
     cur.i_create_time = time(NULL);
     cur.i_last_open_time = time(NULL);
@@ -130,6 +136,8 @@ bool format()
     char result[100];
     open(current_dir_inode_address, "users_info", result);
     cd(current_dir_inode_address, "..");
+
+    fflush(fw);
     return true;
 }
 
@@ -888,6 +896,11 @@ bool check_user(char name[], char password[])
     to_search += string(password);
     char infos[BLOCK_SIZE];
     memset(infos, '\0', BLOCK_SIZE);
+    int come_back_address = current_dir_inode_address;
+    current_dir_inode_address = root_dir_inode_address;
+    cd(current_dir_inode_address, "etc");
+    user_configure_dir_inode_address = current_dir_inode_address;
+    current_dir_inode_address = come_back_address;
     open(user_configure_dir_inode_address, "users_info", infos);
     string info = string(infos);
     return not((info.find(to_search, 0)) == string::npos);
@@ -1113,6 +1126,11 @@ bool login()
         to_search += string(password);
         char infos[BLOCK_SIZE];
         memset(infos, '\0', BLOCK_SIZE);
+        int come_back_address = current_dir_inode_address;
+        current_dir_inode_address = root_dir_inode_address;
+        cd(current_dir_inode_address, "etc");
+        user_configure_dir_inode_address = current_dir_inode_address;
+        current_dir_inode_address = come_back_address;
         open(user_configure_dir_inode_address, "users_info", infos);
         string info = string(infos);
         size_t index = info.find(to_search, 0);
@@ -1273,6 +1291,16 @@ void cmd(char str[])
         sscanf(str, "%s%s%s", p1, p2, p3);
         rename(current_dir_inode_address, p2, p3);
     }
+    else if (strcmp(p1, "copy") == 0)
+    {
+        sscanf(str, "%s%s", p1, p2);
+        copy(current_dir_inode_address, p2);
+    }
+    else if (strcmp(p1,"paste")==0)
+    {
+        sscanf(str,"%s%s",p1,p2);
+        paste(current_dir_inode_address,p2);
+    }
     else
     {
         cout << "错误指令" << endl;
@@ -1410,6 +1438,117 @@ bool rename(int parent_inode_address, char oldn[], char newn[])
 
 bool copy(int parent_inode_address, char name[])
 {
-    //unfinished
-    return true;
+    Inode cur;
+    fseek(fr, parent_inode_address, SEEK_SET);
+    fread(&cur, sizeof(Inode), 1, fr);
+
+    DirItem dirlist[16];
+
+    int i = 0;
+
+    int block_num;
+    while (i < 160)
+    {
+        block_num = i / 16;
+        if (cur.i_direct_block[block_num] == -1)
+        {
+            i += 16;
+            continue;
+        }
+
+        fseek(fr, cur.i_direct_block[block_num], SEEK_SET);
+        fread(dirlist, sizeof(dirlist), 1, fr);
+        fflush(fr);
+
+        int j;
+        for (j = 0; j < 16; j++)
+        {
+            if (strcmp(dirlist[j].item_name, name) == 0)
+            {
+                copy_to_paste_inode_address = dirlist[j].inode_address;
+                cout << "To copy inode: " << copy_to_paste_inode_address << endl;
+                return true;
+            }
+            i += 1;
+        }
+    }
+    return false;
+}
+
+bool paste(int parent_inode_address, char name[])
+{
+    DirItem dirlist[16];
+
+    Inode cur;
+    fseek(fr, parent_inode_address, SEEK_SET);
+    fread(&cur, sizeof(Inode), 1, fr);
+
+    int i = 0;
+    int index_block = -1, index_diritem = -1;
+    while (i < 160)
+    {
+        int direct_no = i / 16;
+        if (cur.i_direct_block[direct_no] == -1)
+        {
+            i += 16;
+            continue;
+        }
+
+        fseek(fr, cur.i_direct_block[direct_no], SEEK_SET);
+        fread(dirlist, sizeof(dirlist), 1, fr);
+        fflush(fr);
+
+        int j;
+        for (j = 0; j < 16; j++)
+        {
+            if (strcmp(dirlist[j].item_name, name) == 0)
+            {
+                    std::cout << "同名项目已经存在" << std::endl;
+                    return false;
+            }
+            else
+            {
+                if (strcmp(dirlist[j].item_name, "") == 0)
+                {
+                    index_block = direct_no;
+                    index_diritem = j;
+                }
+            }
+            i++;
+        }
+    }
+    if (index_block != -1)
+    {
+        fseek(fr, cur.i_direct_block[index_block], SEEK_SET);
+        fread(dirlist, sizeof(dirlist), 1, fr);
+        fflush(fr);
+
+        strcpy(dirlist[index_diritem].item_name, name);
+        int allocated_inode_address = ialloc();
+        if (allocated_inode_address == -1)
+        {
+            return false;
+        }
+        else
+        {
+            Inode inode_to_write;
+            fseek(fr,copy_to_paste_inode_address,SEEK_SET);
+            fread(&inode_to_write,sizeof(Inode),1,fr);
+            fflush(fr);
+
+            fseek(fw,allocated_inode_address,SEEK_SET);
+            fwrite(&inode_to_write,sizeof(Inode),1,fw);
+            fflush(fw);
+
+            strcpy(dirlist[index_diritem].item_name,name);
+            dirlist[index_diritem].inode_address=allocated_inode_address;
+            
+            fseek(fw, cur.i_direct_block[index_block], SEEK_SET);
+            fwrite(dirlist, sizeof(dirlist), 1, fw);
+            fflush(fw);
+            return true;
+        }
+    }
+    cout<<"没有空闲目录项"<<endl;
+    return false;
 }
