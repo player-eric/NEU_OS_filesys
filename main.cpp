@@ -39,7 +39,7 @@ int main()
     cout << "是否要格式化磁盘(y/n)?";
     char choice;
     cin >> choice;
-    if (choice == true)
+    if (choice == 'y')
     {
         format();
     }
