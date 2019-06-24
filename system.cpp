@@ -888,6 +888,10 @@ bool check_user(char name[], char password[])
     to_search += string(password);
     char infos[BLOCK_SIZE];
     memset(infos, '\0', BLOCK_SIZE);
+    int come_back_address = current_dir_inode_address;
+    cd(root_dir_inode_address, "etc");
+    user_configure_dir_inode_address = current_dir_inode_address;
+    current_dir_inode_address = come_back_address;
     open(user_configure_dir_inode_address, "users_info", infos);
     string info = string(infos);
     return not((info.find(to_search, 0)) == string::npos);
@@ -1278,10 +1282,10 @@ void cmd(char str[])
         sscanf(str, "%s%s", p1, p2);
         copy(current_dir_inode_address, p2);
     }
-    else if (strcmp(p1,"paste")==0)
+    else if (strcmp(p1, "paste") == 0)
     {
-        sscanf(str,"%s%s",p1,p2);
-        paste(current_dir_inode_address,p2);
+        sscanf(str, "%s%s", p1, p2);
+        paste(current_dir_inode_address, p2);
     }
     else
     {
@@ -1519,23 +1523,23 @@ bool paste(int parent_inode_address, char name[])
         else
         {
             Inode inode_to_write;
-            fseek(fr,copy_to_paste_inode_address,SEEK_SET);
-            fread(&inode_to_write,sizeof(Inode),1,fr);
+            fseek(fr, copy_to_paste_inode_address, SEEK_SET);
+            fread(&inode_to_write, sizeof(Inode), 1, fr);
             fflush(fr);
-            
-            fseek(fw,allocated_inode_address,SEEK_SET);
-            fwrite(&inode_to_write,sizeof(Inode),1,fw);
+
+            fseek(fw, allocated_inode_address, SEEK_SET);
+            fwrite(&inode_to_write, sizeof(Inode), 1, fw);
             fflush(fw);
 
-            strcpy(dirlist[index_diritem].item_name,name);
-            dirlist[index_diritem].inode_address=allocated_inode_address;
-            
+            strcpy(dirlist[index_diritem].item_name, name);
+            dirlist[index_diritem].inode_address = allocated_inode_address;
+
             fseek(fw, cur.i_direct_block[index_block], SEEK_SET);
             fwrite(dirlist, sizeof(dirlist), 1, fw);
             fflush(fw);
             return true;
         }
     }
-    cout<<"没有空闲目录项"<<endl;
+    cout << "没有空闲目录项" << endl;
     return false;
 }
