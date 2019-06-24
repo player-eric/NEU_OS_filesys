@@ -2,6 +2,7 @@
 #define GLOBAL_H
 #include "superblock.h"
 #include "inode.h"
+#include "fprocess.h"
 #include <iostream>
 extern SuperBlock *superblock;
 extern int superblock_startaddress;
@@ -24,7 +25,11 @@ extern bool isLogin;
 extern bool quit_flag;
 extern FILE *fw;
 extern FILE *fr;
-extern Inode copy_to_paste;
+extern int copy_to_paste_inode_address;
 extern bool inode_bitmap[INODE_NUM];
 extern bool block_bitmap[BLOCK_NUM];
+
+extern file u_ofile[10];
+extern file sys_ofile[20];
+extern inode_mem mem_inode[10];
 #endif
