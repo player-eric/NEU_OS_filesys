@@ -1307,6 +1307,21 @@ void cmd(char str[])
     {
         help();
     }
+    else if (strcmp(p1, "format") == 0)
+    {
+        if (strcmp(current_user_name, "super_user") == 0)
+        {
+            current_dir_inode_address = root_dir_inode_address;
+            format();
+            memset(current_dir_name, '\0', sizeof(current_dir_name));
+            cd(current_dir_inode_address, "users");
+            cd(current_dir_inode_address, current_user_name);
+        }
+        else
+        {
+            cout << "只有超级用户可以格式化磁盘\n";
+        }
+    }
     else
     {
         cout << "错误指令" << endl;
