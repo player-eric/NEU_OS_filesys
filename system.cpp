@@ -121,12 +121,20 @@ bool format()
     mkdir(root_dir_inode_address, "users");
     cd(current_dir_inode_address, "users");
     mkdir(current_dir_inode_address, "super_user");
+    mkdir(current_dir_inode_address, "user1");
+    mkdir(current_dir_inode_address, "user2");
+    mkdir(current_dir_inode_address, "user3");
+    mkdir(current_dir_inode_address, "user4");
+    mkdir(current_dir_inode_address, "user5");
+    mkdir(current_dir_inode_address, "user6");
+    mkdir(current_dir_inode_address, "user7");
+    mkdir(current_dir_inode_address, "user8");
     user_own_dir_inode_address = current_dir_inode_address;
     cd(current_dir_inode_address, "..");
 
     cd(current_dir_inode_address, "etc");
     user_configure_dir_inode_address = current_dir_inode_address;
-    char super_user_info[] = "super_user,123456,super_user,,";
+    char super_user_info[] = "super_user,123456,super_user,,user1,user1,group1,,user2,user2,group1,user3,user3,group1,,user4,user4,group1,,user5,user5,group2,,user6,user6,group2,,user7,user7,group2,,user8,user8,group8,,";
     create_file(current_dir_inode_address, "users_info", super_user_info);
     edit(current_dir_inode_address, "users_info", super_user_info);
     char result[100];
