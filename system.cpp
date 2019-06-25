@@ -28,8 +28,10 @@ bool install_system()
 {
     fseek(fr, superblock_startaddress, SEEK_SET);
     fread(superblock, sizeof(SuperBlock), 1, fr);
+    fflush(fr);
     fseek(fr, inode_bitmap_startaddress, SEEK_SET);
     fread(inode_bitmap, sizeof(inode_bitmap), 1, fr);
+
     fseek(fr, block_bitmap_startaddress, SEEK_SET);
     fread(block_bitmap, sizeof(block_bitmap), 1, fr);
     isLogin = false;
@@ -648,7 +650,6 @@ bool open(int parent_inode_address, char name[], char content[])
         Inode inode_to_read;
         fseek(fr, dirlist[index_item].inode_address, SEEK_SET);
         fread(&inode_to_read, sizeof(Inode), 1, fr);
-
         int p;
         for (int p = 0; p < 10; p++)
         {
@@ -888,10 +889,13 @@ bool check_user(char name[], char password[])
     to_search += string(password);
     char infos[BLOCK_SIZE];
     memset(infos, '\0', BLOCK_SIZE);
+    char come_back_dir_name[100];
+    strcpy(come_back_dir_name, current_dir_name);
     int come_back_address = current_dir_inode_address;
     cd(root_dir_inode_address, "etc");
     user_configure_dir_inode_address = current_dir_inode_address;
     current_dir_inode_address = come_back_address;
+    strcpy(current_dir_name, come_back_dir_name);
     open(user_configure_dir_inode_address, "users_info", infos);
     string info = string(infos);
     return not((info.find(to_search, 0)) == string::npos);
@@ -1185,11 +1189,19 @@ void cmd(char str[])
         sscanf(str, "%s%s", p1, p2);
         char buff[5120];
         memset(buff, '\0', 5120);
-        open(current_dir_inode_address, p2, buff);
-        system("clear");
-        cout << "文件 " << p2 << " 内容："
-             << endl;
-        printf("%s\n", buff);
+        bool flag = open(current_dir_inode_address, p2, buff);
+        if (flag == true)
+        {
+            system("clear");
+            cout << "文件 " << p2 << " 内容："
+                 << endl;
+            printf("%s\n", buff);
+        }
+    }
+    else if (strcmp(p1, "close") == 0)
+    {
+        sscanf(str, "%s%s", p1, p2);
+        close(current_dir_inode_address, p2);
     }
     else if (strcmp(p1, "edit") == 0)
     {
@@ -1221,10 +1233,6 @@ void cmd(char str[])
         }
 
         getchar();
-    }
-    else if (strcmp(p1, "format") == 0)
-    {
-        format();
     }
     else if (strcmp(p1, "logout") == 0)
     {
@@ -1286,6 +1294,10 @@ void cmd(char str[])
     {
         sscanf(str, "%s%s", p1, p2);
         paste(current_dir_inode_address, p2);
+    }
+    else if (strcmp(p1, "help") == 0)
+    {
+        help();
     }
     else
     {
@@ -1542,4 +1554,108 @@ bool paste(int parent_inode_address, char name[])
     }
     cout << "没有空闲目录项" << endl;
     return false;
+}
+bool close(int parent_inode_address, char name[])
+{
+    Inode cur;
+    fseek(fr, parent_inode_address, SEEK_SET);
+    fread(&cur, sizeof(Inode), 1, fr);
+
+    DirItem dirlist[16];
+
+    int i = 0;
+    int index_block = -1, index_item = -1;
+
+    int block_num;
+    while (i < 160)
+    {
+        block_num = i / 16;
+        if (cur.i_direct_block[block_num] == -1)
+        {
+            i += 16;
+            continue;
+        }
+
+        fseek(fr, cur.i_direct_block[block_num], SEEK_SET);
+        fread(dirlist, sizeof(dirlist), 1, fr);
+        fflush(fr);
+
+        int j;
+        for (j = 0; j < 16; j++)
+        {
+            if (strcmp(dirlist[j].item_name, name) == 0)
+            {
+                index_block = block_num;
+                index_item = j;
+            }
+            i += 1;
+        }
+    }
+    if (index_block == -1 || index_item == -1)
+    {
+        cout << "该文件不存在" << endl;
+        return false;
+    }
+    else
+    {
+        Inode inode_to_read;
+        fseek(fr, dirlist[index_item].inode_address, SEEK_SET);
+        fread(&inode_to_read, sizeof(Inode), 1, fr);
+        int p;
+        for (int p = 0; p < 10; p++)
+        {
+            if (mem_inode[p].occupied == true)
+            {
+                if (mem_inode[p].i_ino == inode_to_read.i_ino)
+                {
+                    memset(&mem_inode[p], 0, sizeof(inode_mem));
+                }
+                continue;
+            }
+        }
+
+        for (p = 0; p < 20; p++)
+        {
+            if (sys_ofile[p].occupied == true)
+            {
+                if (sys_ofile[p].f_inode == inode_to_read.i_ino)
+                {
+                    memset(&sys_ofile[p], 0, sizeof(file));
+                }
+                continue;
+            }
+        }
+        for (p = 0; p < 10; p++)
+        {
+            if (u_ofile[p].occupied == true)
+            {
+                if (u_ofile[p].f_inode == inode_to_read.i_ino)
+                {
+                    memset(&u_ofile[p], 0, sizeof(file));
+                }
+                continue;
+            }
+        }
+    }
+    cout << "文件" << name << "已关闭\n";
+}
+void help(void)
+{
+    cout << "指令\t\t\t\t功能\t\t\t\n";
+    cout << "cd\t\t\t\t切换目录\n";
+    cout << "ls\t\t\t\t查看当前目录下的所有目录项\n";
+    cout << "mkdir+dirname\t\t\t在当前目录下新建目录\n";
+    cout << "nfile+filename\t\t\t在当前目录下创建一个空文件\n";
+    cout << "edit+filename\t\t\t编辑文件filename\n";
+    cout << "open+filename\t\t\t打开文件filename\n";
+    cout << "close+filename\t\t\t关闭文件filename\n";
+    cout << "rmdir+dirname\t\t\t删除当前目录下的子目录dirname\n";
+    cout << "rmfile+filename\t\t\t删除当前目录下的文件filename\n";
+    cout << "copy+filename\t\t\t将当前目录下的文件filename拷贝到粘贴板\n";
+    cout << "paste+filename\t\t\t将粘贴板中的文件filename粘贴到当前目录\n";
+    cout << "rename\t\t\t\t重命名文件\n";
+    cout << "nuser\t\t\t\t创建一个新用户\n";
+    cout << "cls\t\t\t\t清除屏幕中的内容\n";
+    cout << "logout\t\t\t\t注销当前用户\n";
+    cout << "quit\t\t\t\t退出程序\n";
 }
