@@ -1322,6 +1322,11 @@ void cmd(char str[])
             cout << "只有超级用户可以格式化磁盘\n";
         }
     }
+    else if (strcmp(p1, "chmod") == 0)
+    {
+        sscanf(str, "%s%s%s", p1, p2, p3);
+        chmod(current_dir_inode_address, p2, p3);
+    }
     else
     {
         cout << "错误指令" << endl;
@@ -1681,4 +1686,93 @@ void help(void)
     cout << "cls\t\t\t\t清除屏幕中的内容\n";
     cout << "logout\t\t\t\t注销当前用户\n";
     cout << "quit\t\t\t\t退出程序\n";
+}
+
+bool chmod(int parent_inode_address, char name[], char nmode[])
+{
+    if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+    {
+        printf("错误操作\n");
+        return false;
+    }
+
+    Inode cur;
+    fseek(fr, parent_inode_address, SEEK_SET);
+    fread(&cur, sizeof(Inode), 1, fr);
+
+    DirItem dirlist[16];
+
+    int i = 0;
+    int index_block = -1, index_item = -1;
+
+    int block_num;
+    while (i < 160)
+    {
+        block_num = i / 16;
+        if (cur.i_direct_block[block_num] == -1)
+        {
+            i += 16;
+            continue;
+        }
+
+        fseek(fr, cur.i_direct_block[block_num], SEEK_SET);
+        fread(dirlist, sizeof(dirlist), 1, fr);
+        fflush(fr);
+
+        int j;
+        for (j = 0; j < 16; j++)
+        {
+            if (strcmp(dirlist[j].item_name, name) == 0)
+            {
+                index_block = block_num;
+                index_item = j;
+            }
+            i += 1;
+        }
+    }
+    if (index_block == -1 || index_item == -1)
+    {
+        cout << "该文件不存在" << endl;
+        return false;
+    }
+    else
+    {
+        Inode inode_to_change;
+        fseek(fr, dirlist[index_item].inode_address, SEEK_SET);
+        fread(&inode_to_change, sizeof(Inode), 1, fr);
+
+        if (strcmp(current_user_name, inode_to_change.i_uname) != 0 && strcmp(current_user_name, "super_user") != 0)
+        {
+            printf("权限不足\n");
+            return false;
+        }
+
+        int new_mode = 0;
+        int pow = 0;
+        for (int i = strlen(nmode); i >= 0; i--)
+        {
+            if (nmode[i] == '-')
+            {
+                pow++;
+                continue;
+            }
+            else
+            {
+
+                int add = 1;
+                for (int j = 0; j < pow; j++)
+                {
+                    add *= 2;
+                }
+                new_mode += add;
+                pow++;
+            }
+        }
+        cout << new_mode << endl;
+        inode_to_change.i_mode = inode_to_change.i_mode | new_mode;
+
+        fseek(fw, dirlist[index_item].inode_address, SEEK_SET);
+        fwrite(&inode_to_change, sizeof(Inode), 1, fw);
+        fflush(fw);
+    }
 }

@@ -23,4 +23,5 @@ bool copy(int parent_inode_address, char name[]);
 bool paste(int parent_inode_address, char name[]);
 void cmd(char str[]);
 void help(void);
+bool chmod(int parent_inode_address, char name[], char nmode[]);
 #endif
