@@ -54,7 +54,7 @@ int main()
         cd(current_dir_inode_address, current_user_name);
         while (isLogin == true && quit_flag != true)
         {
-            cout << "<" << current_user_name << "#" << current_dir_name << ">  ";
+            cout << "<" << current_user_name << "#" << current_dir_name << "> ";
             char command[100];
             cin.getline(command, 100);
             cmd(command);
